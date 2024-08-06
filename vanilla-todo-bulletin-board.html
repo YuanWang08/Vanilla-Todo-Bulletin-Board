@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do Bulletin Board</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s, color 0.3s;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .dark {
+            background-color: #1a202c;
+            color: #fff;
+        }
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background-color: #8a2be2;
+            color: white;
+        }
+        .dark nav {
+            background-color: #2c5282;
+        }
+        button {
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            margin: 0 0.2rem;
+            border: none;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem;
+            flex-grow: 1;
+        }
+        .todo-input {
+            display: flex;
+            margin-bottom: 1rem;
+        }
+        .todo-input input {
+            flex-grow: 1;
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+        .todo-input button {
+            background-color: #4299e1;
+            color: white;
+        }
+        .todo-item, .history-item {
+            background-color: white;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+        .dark .todo-item, .dark .history-item {
+            background-color: #2d3748;
+        }
+        .todo-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 0.5rem;
+        }
+        .todo-actions button {
+            margin-left: 0.5rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .complete-btn { background-color: #48bb78; }
+        .delete-btn { background-color: #f56565; }
+        .edit-btn { background-color: #ecc94b; }
+        .timestamp {
+            font-size: 0.8rem;
+            color: #718096;
+        }
+        .dark .timestamp {
+            color: #a0aec0;
+        }
+        footer {
+            text-align: center;
+            padding: 1rem;
+            background-color: #f7fafc;
+            color: #4a5568;
+        }
+        .dark footer {
+            background-color: #2d3748;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div>
+            <button id="homeBtn">Home</button>
+            <button id="historyBtn">History</button>
+        </div>
+        <button id="darkModeBtn">🌙</button>
+    </nav>
+    
+    <div class="container">
+        <div id="homePage">
+            <div class="todo-input">
+                <input type="text" id="newTodoInput" placeholder="Add a new todo">
+                <button id="addTodoBtn">Add</button>
+            </div>
+            <div id="todoList"></div>
+        </div>
+        
+        <div id="historyPage" style="display:none;">
+            <h2>Completed Todos</h2>
+            <div id="completedList"></div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; Amelia Morgan | All Rights Reserved
+    </footer>
+
+    <script>
+        let darkMode = false;
+        let todos = [];
+        let completedTodos = [];
+        let editingId = null;
+
+        const darkModeBtn = document.getElementById('darkModeBtn');
+        const homeBtn = document.getElementById('homeBtn');
+        const historyBtn = document.getElementById('historyBtn');
+        const homePage = document.getElementById('homePage');
+        const historyPage = document.getElementById('historyPage');
+        const newTodoInput = document.getElementById('newTodoInput');
+        const addTodoBtn = document.getElementById('addTodoBtn');
+        const todoList = document.getElementById('todoList');
+        const completedList = document.getElementById('completedList');
+
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark', darkMode);
+            darkModeBtn.textContent = darkMode ? '☀️' : '🌙';
+        }
+
+        function showHome() {
+            homePage.style.display = 'block';
+            historyPage.style.display = 'none';
+        }
+
+        function showHistory() {
+            homePage.style.display = 'none';
+            historyPage.style.display = 'block';
+        }
+
+        function addOrUpdateTodo() {
+            const text = newTodoInput.value.trim();
+            if (text) {
+                if (editingId !== null) {
+                    const index = todos.findIndex(todo => todo.id === editingId);
+                    if (index !== -1) {
+                        todos[index].text = text;
+                        renderTodos();
+                        editingId = null;
+                        addTodoBtn.textContent = 'Add';
+                    }
+                } else {
+                    const newTodo = {
+                        id: Date.now(),
+                        text: text,
+                        createdAt: new Date()
+                    };
+                    todos.push(newTodo);
+                    renderTodos();
+                }
+                newTodoInput.value = '';
+            }
+        }
+
+        function completeTodo(id) {
+            const index = todos.findIndex(todo => todo.id === id);
+            if (index !== -1) {
+                const completedTodo = {...todos[index], completedAt: new Date()};
+                completedTodos.push(completedTodo);
+                todos.splice(index, 1);
+                renderTodos();
+                renderCompletedTodos();
+            }
+        }
+
+        function deleteTodo(id) {
+            todos = todos.filter(todo => todo.id !== id);
+            renderTodos();
+        }
+
+        function editTodo(id) {
+            const todo = todos.find(todo => todo.id === id);
+            if (todo) {
+                editingId = id;
+                newTodoInput.value = todo.text;
+                addTodoBtn.textContent = 'Update';
+            }
+        }
+
+        function renderTodos() {
+            todoList.innerHTML = todos.map(todo => `
+                <div class="todo-item">
+                    <p>${todo.text}</p>
+                    <p class="timestamp">Created: ${todo.createdAt.toLocaleString()}</p>
+                    <div class="todo-actions">
+                        <button class="complete-btn" onclick="completeTodo(${todo.id})">✓</button>
+                        <button class="delete-btn" onclick="deleteTodo(${todo.id})">🗑</button>
+                        <button class="edit-btn" onclick="editTodo(${todo.id})">✎</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderCompletedTodos() {
+            completedList.innerHTML = completedTodos.map(todo => `
+                <div class="history-item">
+                    <p>${todo.text}</p>
+                    <p class="timestamp">Created: ${todo.createdAt.toLocaleString()}</p>
+                    <p class="timestamp">Completed: ${todo.completedAt.toLocaleString()}</p>
+                </div>
+            `).join('');
+        }
+
+        darkModeBtn.addEventListener('click', toggleDarkMode);
+        homeBtn.addEventListener('click', showHome);
+        historyBtn.addEventListener('click', showHistory);
+        addTodoBtn.addEventListener('click', addOrUpdateTodo);
+        newTodoInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') addOrUpdateTodo();
+        });
+
+        renderTodos();
+        renderCompletedTodos();
+    </script>
+</body>
+</html>
